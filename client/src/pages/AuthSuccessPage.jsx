@@ -9,12 +9,19 @@ export default function AuthSuccessPage() {
 
   useEffect(() => {
     const token = params.get('token');
-    if (token) {
-      setToken(token).then(() => navigate('/'));
-    } else {
+
+    if (!token) {
       navigate('/login');
+      return;
     }
-  }, []);
+
+    const login = async () => {
+      await setToken(token);
+      navigate('/');
+    };
+
+    login();
+  }, [params, navigate, setToken]);
 
   return <div className="p-8 font-black">Signing you in...</div>;
 }
