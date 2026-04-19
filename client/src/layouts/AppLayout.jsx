@@ -49,9 +49,7 @@ export default function AppLayout() {
 
         <Outlet />
 
-        <footer className="pb-8 pt-4 text-center text-sm font-semibold text-slate-600">
-          Built for hackathons with MERN, Cloudinary, Leaflet, Google OAuth, and Gemini.
-        </footer>
+        
       </div>
     </div>
   );
