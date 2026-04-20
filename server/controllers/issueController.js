@@ -1,6 +1,7 @@
 import Issue from '../models/Issue.js';
 import { buildStatusEvent, computeOverdueMeta, getDepartmentForCategory, getSlaDeadline } from '../utils/issueHelpers.js';
 import { inferIssueMeta } from '../services/geminiService.js';
+import { sendIssueCreatedEmails, sendIssueStatusEmails } from '../services/mailService.js';
 
 const decorateIssue = (issueDoc) => {
   const issue = issueDoc.toObject ? issueDoc.toObject() : issueDoc;
@@ -9,7 +10,7 @@ const decorateIssue = (issueDoc) => {
 };
 
 export const getIssues = async (req, res) => {
-  const { status, category, sort = 'latest' } = req.query;
+  const { status, category, sort = 'latest', ignored } = req.query;
   const query = {};
   if (status) query.status = status;
   if (category) query.category = category;
@@ -23,7 +24,11 @@ export const getIssues = async (req, res) => {
     .sort(sortObj)
     .lean();
 
-  res.json(issues.map(decorateIssue));
+  let results = issues.map(decorateIssue);
+  if (ignored === 'true') {
+    results = results.filter((issue) => issue.status !== 'resolved' && issue.isOverdue);
+  }
+  res.json(results);
 };
 
 export const getIssueById = async (req, res) => {
@@ -62,12 +67,15 @@ export const createIssue = async (req, res) => {
     location: { type: 'Point', coordinates: [Number(lng), Number(lat)] },
     createdBy: req.user._id,
     reporterName: req.user.name,
+    hotspotWeight: 1,
     slaDeadline,
-    statusHistory: [buildStatusEvent({ from: 'none', to: 'pending', actorName: req.user.name, note: 'Issue reported' })]
+    statusHistory: [buildStatusEvent({ from: 'none', to: 'pending', actorName: req.user.name, note: 'Issue reported and sent for review' })]
   });
 
   const populated = await Issue.findById(issue._id).populate('createdBy', 'name email avatar');
-  res.status(201).json(decorateIssue(populated));
+  const decorated = decorateIssue(populated);
+  sendIssueCreatedEmails(decorated, req.user).catch((error) => console.error('Issue created email failed:', error.message));
+  res.status(201).json(decorated);
 };
 
 export const deleteIssue = async (req, res) => {
@@ -81,8 +89,14 @@ export const deleteIssue = async (req, res) => {
 
 export const updateIssueStatus = async (req, res) => {
   const { status, resolvedImage, note } = req.body;
-  const issue = await Issue.findById(req.params.id);
+  const allowedStatuses = ['pending', 'assigned', 'in-progress', 'resolved'];
+  if (!allowedStatuses.includes(status)) return res.status(400).json({ message: 'Invalid status' });
+
+  const issue = await Issue.findById(req.params.id).populate('createdBy', 'name email avatar');
   if (!issue) return res.status(404).json({ message: 'Issue not found' });
+  if (status === 'resolved' && !resolvedImage && !issue.resolvedImage) {
+    return res.status(400).json({ message: 'Resolved issue proof image is required' });
+  }
 
   const prevStatus = issue.status;
   issue.status = status;
@@ -90,15 +104,27 @@ export const updateIssueStatus = async (req, res) => {
   if (status === 'resolved') {
     issue.resolvedAt = new Date();
     issue.resolutionTimeHours = Math.max(1, Math.floor((issue.resolvedAt - issue.createdAt) / (1000 * 60 * 60)));
+    issue.isOverdue = false;
+    issue.overdueByHours = 0;
+  } else {
+    const overdueMeta = computeOverdueMeta(issue);
+    issue.isOverdue = overdueMeta.isOverdue;
+    issue.overdueByHours = overdueMeta.overdueByHours;
   }
-  issue.statusHistory.push(buildStatusEvent({ from: prevStatus, to: status, actorName: req.user.name, note }));
-  const overdueMeta = computeOverdueMeta(issue);
-  issue.isOverdue = overdueMeta.isOverdue;
-  issue.overdueByHours = overdueMeta.overdueByHours;
+  issue.statusHistory.push(
+    buildStatusEvent({
+      from: prevStatus,
+      to: status,
+      actorName: req.user.name,
+      note: note || `Issue moved from ${prevStatus} to ${status}`
+    })
+  );
   await issue.save();
 
-  const populated = await Issue.findById(issue._id).populate('createdBy', 'name email avatar');
-  res.json(decorateIssue(populated));
+  const refreshed = await Issue.findById(issue._id).populate('createdBy', 'name email avatar');
+  const decorated = decorateIssue(refreshed);
+  sendIssueStatusEmails(decorated, req.user.name).catch((error) => console.error('Issue status email failed:', error.message));
+  res.json(decorated);
 };
 
 export const upvoteIssue = async (req, res) => {
@@ -112,7 +138,7 @@ export const upvoteIssue = async (req, res) => {
     issue.upvotedBy.push(req.user._id);
     issue.upvotes += 1;
   }
-  issue.hotspotWeight = issue.upvotes + (issue.severity === 'high' ? 5 : issue.severity === 'medium' ? 3 : 1);
+  issue.hotspotWeight = Math.max(1, issue.upvotes + 1);
   await issue.save();
   res.json({ upvotes: issue.upvotes, hasUpvoted: !already });
 };

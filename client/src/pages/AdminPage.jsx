@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../api/client';
 import AdminIssueDrawer from '../components/AdminIssueDrawer';
+import DepartmentScorePanel from '../components/DepartmentScorePanel';
+import IgnoredIssuesPanel from '../components/IgnoredIssuesPanel';
 
 export default function AdminPage() {
   const [issues, setIssues] = useState([]);
@@ -24,19 +26,15 @@ export default function AdminPage() {
       <div className="brutal-card bg-white p-5">
         <h2 className="text-4xl font-black">Super Admin Dashboard</h2>
         <p className="mt-2 text-slate-600">Admin email: priytoshshahi90@gmail.com</p>
-        {analytics && (
-          <div className="mt-4 grid gap-4 md:grid-cols-3">
-            {analytics.departmentPerformance.map((dept) => (
-              <div key={dept.department} className="rounded-[18px] border-[3px] border-ink bg-butter p-4 shadow-brutalSm">
-                <div className="font-black">{dept.department}</div>
-                <div className="text-sm">Score: {dept.score}</div>
-                <div className="text-sm">Within SLA: {dept.withinSlaRate}%</div>
-                <div className="text-sm">Avg resolution: {dept.avgResolutionTime}h</div>
-              </div>
-            ))}
-          </div>
-        )}
       </div>
+
+      {analytics && (
+        <div className="grid gap-5 xl:grid-cols-[1.05fr_0.95fr]">
+          <DepartmentScorePanel items={analytics.departmentPerformance} />
+          <IgnoredIssuesPanel items={analytics.ignored || []} />
+        </div>
+      )}
+
       <div className="brutal-card overflow-x-auto bg-white p-4">
         <table className="min-w-full text-left text-sm">
           <thead>
@@ -56,7 +54,9 @@ export default function AdminPage() {
                 <td className="p-3 font-black">{issue.title}<div className="text-xs text-slate-500">{issue.areaName}</div></td>
                 <td className="p-3">{issue.createdBy?.name || issue.reporterName}<div className="text-xs text-slate-500">{issue.createdBy?.email}</div></td>
                 <td className="p-3">{issue.department}</td>
-                <td className="p-3">{issue.status}</td>
+                <td className="p-3">
+                  <span className={`rounded-full px-3 py-1 text-xs font-black ${issue.isOverdue ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-700'}`}>{issue.status}</span>
+                </td>
                 <td className="p-3"><Link to={`/issues/${issue._id}`} className="font-black underline" onClick={(e) => e.stopPropagation()}>Open card</Link></td>
               </tr>
             ))}

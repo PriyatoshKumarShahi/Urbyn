@@ -5,6 +5,8 @@ import IssueMap from '../components/IssueMap';
 import IssueCard from '../components/IssueCard';
 import HotspotPanel from '../components/HotspotPanel';
 import ChartsPanel from '../components/ChartsPanel';
+import IgnoredIssuesPanel from '../components/IgnoredIssuesPanel';
+import DepartmentScorePanel from '../components/DepartmentScorePanel';
 import { useAuth } from '../context/AuthContext';
 
 export default function HomePage() {
@@ -18,7 +20,6 @@ export default function HomePage() {
   };
 
   const loadAnalytics = async () => {
-    if (!user || user.role !== 'admin') return;
     try {
       const { data } = await api.get('/analytics/dashboard');
       setAnalytics(data);
@@ -29,11 +30,8 @@ export default function HomePage() {
 
   useEffect(() => {
     loadIssues();
-  }, []);
-
-  useEffect(() => {
     loadAnalytics();
-  }, [user]);
+  }, []);
 
   return (
     <div className="space-y-5">
@@ -43,17 +41,24 @@ export default function HomePage() {
           <div className="brutal-card flex min-h-[250px] items-center justify-center bg-[#F5FDFF] p-5">
             <div className="max-w-md text-center">
               <h3 className="text-5xl font-black">No report should disappear.</h3>
-              <p className="mt-4 text-lg text-slate-600">Every issue is public, mapped, and measured by deadlines, hotness, and fix verification.</p>
+              <p className="mt-4 text-lg text-slate-600">Every issue is public, mapped, tracked through milestones, and checked against deadlines with proof-of-fix visibility.</p>
             </div>
           </div>
           <IssueMap issues={issues} />
         </div>
       </div>
 
-      {user?.role === 'admin' && analytics.hotspots && (
-        <div className="grid gap-5 xl:grid-cols-[0.9fr_1.1fr]">
+      {analytics.hotspots && (
+        <div className="grid gap-5 xl:grid-cols-[0.95fr_1.05fr]">
           <HotspotPanel hotspots={analytics.hotspots} />
           <ChartsPanel analytics={analytics} />
+        </div>
+      )}
+
+      {analytics.departmentPerformance && (
+        <div className="grid gap-5 xl:grid-cols-[1.05fr_0.95fr]">
+          <DepartmentScorePanel items={analytics.departmentPerformance} />
+          <IgnoredIssuesPanel items={analytics.ignored || []} />
         </div>
       )}
 

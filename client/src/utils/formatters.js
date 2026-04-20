@@ -13,5 +13,15 @@ export const timeLeftLabel = (deadline, isOverdue, overdueByHours = 0) => {
   return `${hours}h left`;
 };
 
+export const formatHours = (hours = 0) => {
+  if (!hours) return '0h';
+  if (hours >= 24) {
+    const days = Math.floor(hours / 24);
+    const extraHours = hours % 24;
+    return `${days}d ${extraHours}h`;
+  }
+  return `${hours}h`;
+};
+
 export const severityColor = (severity) => ({ low: 'bg-green-400', medium: 'bg-yellow-300', high: 'bg-red-400' }[severity] || 'bg-gray-300');
 export const statusColor = (status) => ({ pending: 'bg-orange-200', assigned: 'bg-skybubble', 'in-progress': 'bg-butter', resolved: 'bg-mint' }[status] || 'bg-gray-200');
