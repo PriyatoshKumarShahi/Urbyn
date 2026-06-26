@@ -33,9 +33,7 @@ export default function AppLayout() {
             </div> */}
           </Link>
           <nav className="flex flex-wrap items-center gap-3">
-            <NavLink to="/dashboard" className="brutal-btn bg-blush px-4 py-2">
-              Explore
-            </NavLink>
+            
             {user?.role === "admin" && (
               <NavLink
                 to="/admin"
