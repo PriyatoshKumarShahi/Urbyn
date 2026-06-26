@@ -36,6 +36,7 @@ export const AuthProvider = ({ children }) => {
         localStorage.setItem('urbyn_token', token);
         await fetchMe();
       },
+
       logout: () => {
         localStorage.removeItem('urbyn_token');
         setUser(null);

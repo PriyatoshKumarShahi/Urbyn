@@ -6,21 +6,22 @@ export default function AuthSuccessPage() {
   const { setToken } = useAuth();
   const navigate = useNavigate();
 
-  useEffect(() => {
-    const token = params.get('token');
+useEffect(() => {
+  const token = params.get('token');
 
-    if (!token) {
-      navigate('/login');
-      return;
-    }
+  if (!token) {
+    navigate('/login');
+    return;
+  }
 
-    const login = async () => {
-      await setToken(token);
-      navigate('/');
-    };
+  const login = async () => {
+    await setToken(token);
+    navigate('/');
+  };
 
-    login();
-  }, [params, navigate, setToken]);
+  login();
+
+}, []);
 
   return <div className="p-8 font-black">Signing you in...</div>;
 }
